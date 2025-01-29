@@ -16,10 +16,11 @@ function print_help_and_exit() {
   echo "Usage: $0 <option ...>"
   echo ""
   echo "Options:"
-  echo "  --help          - Print this message"
-  echo "  --download      - Download the latest nxdk_pgraph_tests ISO"
-  echo "  --iso <file>    - Use the given nxdk_pgraph_tests ISO"
-  echo "  --config <file> - Repack the ISO with the given nxdk_pgraph_tests_config.json"
+  echo "  --help           - Print this message"
+  echo "  --download       - Download the latest nxdk_pgraph_tests ISO"
+  echo "  --iso <file>     - Use the given nxdk_pgraph_tests ISO"
+  echo "  --config <file>  - Repack the ISO with the given nxdk_pgraph_tests_config.json"
+  echo "  --extract-config - Extracts the existing JSON config(s) from the iso"
   exit 1
 }
 
@@ -38,6 +39,19 @@ function download_latest_iso() {
   curl -s -L "${iso_url}" --output "${downloaded_iso_name}"
 
   iso="${downloaded_iso_name}"
+}
+
+function extract_config() {
+  local iso
+  iso="${1}"
+
+  tmpdir="$(mktemp -d)"
+  trap 'rm -rf "${tmpdir}"' EXIT
+
+  extract-xiso -d "${tmpdir}" -x "${iso}" >/dev/null
+  find "${tmpdir}"
+
+  cp "${tmpdir}"/*.json .
 }
 
 function repack_config() {
@@ -65,6 +79,8 @@ function main() {
   iso=""
   local config
   config=""
+  local extract_config
+  extract_config=false
 
   set +u
   while [ ! -z "${1}" ]; do
@@ -80,6 +96,10 @@ function main() {
     '--config'*)
       config="${2}"
       shift 2
+      ;;
+    '--extract-config'*)
+      extract_config=true
+      shift
       ;;
     '-h'*)
       print_help_and_exit
@@ -108,7 +128,14 @@ function main() {
 
   if [[ ${iso:+x} != "x" ]]; then
     echo "No ISO specified, exiting."
-    exit 1
+
+    echo ""
+
+    print_help_and_exit
+  fi
+
+  if [[ ${extract_config} == true ]]; then
+    extract_config "${iso}"
   fi
 
   if [[ ${config:+x} == "x" ]]; then
