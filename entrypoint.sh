@@ -49,7 +49,6 @@ function extract_config() {
   trap 'rm -rf "${tmpdir}"' EXIT
 
   extract-xiso -d "${tmpdir}" -x "${iso}" >/dev/null
-  find "${tmpdir}"
 
   cp "${tmpdir}"/*.json .
 }
