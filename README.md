@@ -20,7 +20,7 @@ pip install nxdk-pgraph-test-repacker
 ## Usage
 
 ```console
-python -m nxdk_pgraph_test_repacker -h`
+python -m nxdk_pgraph_test_repacker -h
 ```
 
 ### Docker
