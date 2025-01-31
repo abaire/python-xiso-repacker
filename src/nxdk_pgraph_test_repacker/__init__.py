@@ -125,7 +125,13 @@ def _download_latest_extract_xiso(output_path: str) -> bool:
     return True
 
 
-def _ensure_extract_xiso(path_hint: str) -> str | None:
+def ensure_extract_xiso(path_hint: str | None) -> str | None:
+    """Ensures that the extract-xiso program is available and returns its path.
+
+    :param path_hint - Path at which the extract-xiso program is expected to be
+
+    :return The full path of extract-xiso or None if it was not found.
+    """
     allow_download = False
     if not path_hint:
         output_dir = user_data_dir("nxdk-pgraph-test-repacker")
@@ -160,25 +166,45 @@ def _ensure_output_directory(output: str) -> str:
     return output
 
 
-def repack_config(iso_file: str, output_file: str, config_file: str, extract_xiso_binary: str) -> int:
+def repack_config(iso_file: str, output_file: str, config_file: str, extract_xiso_binary: str) -> bool:
+    """Updates the given nxdk_pgraph_tests xiso with a new JSON config file and writes it to the given location."""
     logger.info("Repacking config in %s from %s using %s", iso_file, config_file, extract_xiso_binary)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        subprocess.run([extract_xiso_binary, "-d", tmpdir, "-x", iso_file], capture_output=True, check=False)
+        try:
+            subprocess.run([extract_xiso_binary, "-d", tmpdir, "-x", iso_file], capture_output=True, check=True)
+        except KeyboardInterrupt:
+            raise
+        except Exception:
+            logger.exception("Failed to extract iso %s using %s", iso_file, extract_xiso_binary)
+            return False
 
         shutil.copy(config_file, os.path.join(tmpdir, _NXDK_PGRAPH_TESTS_CONFIG_FILE))
 
-        subprocess.run([extract_xiso_binary, "-c", tmpdir, output_file], capture_output=True, check=False)
+        try:
+            subprocess.run([extract_xiso_binary, "-c", tmpdir, output_file], capture_output=True, check=True)
+        except KeyboardInterrupt:
+            raise
+        except Exception:
+            logger.exception("Failed to create iso %s using %s", output_file, extract_xiso_binary)
+            return False
         logger.info("Generated %s", output_file)
 
-    return 0
+    return True
 
 
-def extract_config(iso_file: str, output_file: str, extract_xiso_binary: str) -> int:
+def extract_config(iso_file: str, output_file: str, extract_xiso_binary: str) -> bool:
+    """Extracts the JSON config file from the given nxdk_pgraph_tests xiso and writes it to the given location."""
     logger.info("Extracting config from %s using %s", iso_file, extract_xiso_binary)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        subprocess.run([extract_xiso_binary, "-d", tmpdir, "-x", iso_file], capture_output=True, check=False)
+        try:
+            subprocess.run([extract_xiso_binary, "-d", tmpdir, "-x", iso_file], capture_output=True, check=True)
+        except KeyboardInterrupt:
+            raise
+        except Exception:
+            logger.exception("Failed to extract iso %s using %s", iso_file, extract_xiso_binary)
+            return False
 
         accepted_config_file = ""
         for config_file in glob.glob(os.path.join(tmpdir, "*.json")):
@@ -189,11 +215,12 @@ def extract_config(iso_file: str, output_file: str, extract_xiso_binary: str) ->
                 break
 
         if not accepted_config_file:
-            return 100
+            return False
 
         logger.info("Retrieved %s", os.path.basename(accepted_config_file))
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
         shutil.copy(accepted_config_file, output_file)
-        return 0
+        return True
 
 
 def run():
@@ -256,12 +283,14 @@ def run():
     if not (args.config or args.extract_config):
         sys.exit(0)
 
-    extract_xiso = _ensure_extract_xiso(args.extract_xiso_tool)
+    extract_xiso = ensure_extract_xiso(args.extract_xiso_tool)
     if not extract_xiso:
         logger.error("extract-xiso tool not found")
         sys.exit(3)
 
-    if args.config:
-        sys.exit(repack_config(iso_file, output, args.config, extract_xiso))
-    elif args.extract_config:
-        sys.exit(extract_config(iso_file, args.extract_config, extract_xiso))
+    if args.config and not repack_config(iso_file, output, args.config, extract_xiso):
+        sys.exit(100)
+    if args.extract_config and not extract_config(iso_file, args.extract_config, extract_xiso):
+        sys.exit(100)
+
+    sys.exit(0)
