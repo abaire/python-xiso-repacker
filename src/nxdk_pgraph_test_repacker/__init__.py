@@ -120,9 +120,10 @@ def _download_latest_extract_xiso(output_path: str) -> bool:
             if filename != binary_name:
                 continue
 
-            with open(output_path, "wb") as outfile:
-                outfile.write(archive.read(member))
-
+            output_dir = os.path.dirname(output_path)
+            archive.extract(member, output_dir)
+            if os.path.basename(output_path) != binary_name:
+                os.rename(os.path.join(output_dir, binary_name), output_path)
             os.chmod(output_path, 0o700)
             return True
 
