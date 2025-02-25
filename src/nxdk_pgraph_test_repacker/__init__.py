@@ -85,6 +85,8 @@ def _download_latest_extract_xiso(output_path: str) -> bool:
         asset_name = "macOS"
     elif system_name == "Linux":
         asset_name = "Linux"
+    elif system_name == "Windows":
+        asset_name = "Win64_Release"
     else:
         msg = f"Unsupported host system '{system_name}'"
         raise NotImplementedError(msg)
@@ -111,18 +113,22 @@ def _download_latest_extract_xiso(output_path: str) -> bool:
     urlcleanup()
 
     logging.debug("Extracting binary from zip file at %s", zip_path)
+    binary_name = "extract-xiso.exe" if system_name == "Windows" else "extract-xiso"
     with zipfile.ZipFile(zip_path) as archive:
         for member in archive.infolist():
             filename = member.filename
-            if filename != "extract-xiso":
+            if filename != binary_name:
                 continue
 
-            with open(output_path, "wb") as outfile:
-                outfile.write(archive.read(member))
-
+            output_dir = os.path.dirname(output_path)
+            archive.extract(member, output_dir)
+            if os.path.basename(output_path) != binary_name:
+                os.rename(os.path.join(output_dir, binary_name), output_path)
             os.chmod(output_path, 0o700)
+            return True
 
-    return True
+    logging.error("Failed to find extract-xiso binary within zip file at %s", zip_path)
+    return False
 
 
 def ensure_extract_xiso(path_hint: str | None) -> str | None:
