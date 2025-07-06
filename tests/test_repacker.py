@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: MIT
 import os
 
-from nxdk_pgraph_test_repacker import download_latest_iso
+from python_xiso_repacker.util.extract_xiso import _download_latest_extract_xiso
 
 
 def test_download_works(tmp_path):
-    output_file = tmp_path / "downloaded.iso"
+    output_file = tmp_path / "extract-xiso"
 
-    assert download_latest_iso(output_file)
+    assert _download_latest_extract_xiso(output_file)
 
     assert os.path.isfile(output_file)

@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-from nxdk_pgraph_test_repacker import run
+from python_xiso_repacker import run
 
 run()

@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "nxdk-pgraph-test-repacker"
+name = "python-xiso-repacker"
 dynamic = ["version"]
-description = 'Reconfigures nxdk_pgraph_tester ISOs'
+description = 'Basic file replacer for xisos'
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
-keywords = ["xemu", "nv2a", "xbox", "pgraph"]
+keywords = ["xemu", "xbox", "xiso"]
 authors = [
   { name = "Erik Abair", email = "erik.abair@bearbrains.work" },
 ]
@@ -29,15 +29,15 @@ dependencies = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/abaire/nxdk-pgraph-test-repacker#readme"
-Issues = "https://github.com/abaire/nxdk-pgraph-test-repacker/issues"
-Source = "https://github.com/abaire/nxdk-pgraph-test-repacker"
+Documentation = "https://github.com/abaire/python-xiso-repacker#readme"
+Issues = "https://github.com/abaire/python-xiso-repacker/issues"
+Source = "https://github.com/abaire/python-xiso-repacker"
 
 [project.scripts]
-nxdk-pgraph-test-runner = "nxdk_pgraph_test_repacker:run"
+python-xiso-repacker = "python_xiso_repacker:run"
 
 [tool.hatch.version]
-path = "src/nxdk_pgraph_test_repacker/__about__.py"
+path = "src/python_xiso_repacker/__about__.py"
 
 [tool.hatch.envs.types]
 type = "virtual"
@@ -46,19 +46,19 @@ extra-dependencies = [
   "mypy>=1.0.0",
 ]
 [tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/nxdk_pgraph_test_repacker tests}"
+check = "mypy --install-types --non-interactive {args:src/python_xiso_repacker tests}"
 
 [tool.coverage.run]
-source_pkgs = ["nxdk_pgraph_test_repacker", "tests"]
+source_pkgs = ["python_xiso_repacker", "tests"]
 branch = true
 parallel = true
 omit = [
-  "src/nxdk_pgraph_test_repacker/__about__.py",
+  "src/python_xiso_repacker/__about__.py",
 ]
 
 [tool.coverage.paths]
-nxdk_pgraph_test_repacker = ["src/nxdk_pgraph_test_repacker", "*/nxdk-pgraph-test-repacker/src/nxdk_pgraph_test_repacker"]
-tests = ["tests", "*/nxdk-pgraph-test-repacker/tests"]
+python_xiso_repacker = ["src/python_xiso_repacker", "*/python-xiso-repacker/src/python_xiso_repacker"]
+tests = ["tests", "*/python-xiso-repacker/tests"]
 
 [tool.coverage.report]
 exclude_lines = [
