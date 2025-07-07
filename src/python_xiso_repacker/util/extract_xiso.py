@@ -59,14 +59,12 @@ def _download_latest_extract_xiso(output_path: str | PathLike) -> bool:
     binary_name = "extract-xiso.exe" if system_name == "Windows" else "extract-xiso"
     with zipfile.ZipFile(zip_path) as archive:
         for member in archive.infolist():
-            filename = member.filename
-            if filename != binary_name:
+            if not member.filename.endswith(binary_name) or member.is_dir():
                 continue
 
             output_dir = os.path.dirname(output_path)
             archive.extract(member, output_dir)
-            if os.path.basename(output_path) != binary_name:
-                os.rename(os.path.join(output_dir, binary_name), output_path)
+            os.rename(os.path.join(output_dir, member.filename), output_path)
             os.chmod(output_path, 0o700)
             return True
 
@@ -83,7 +81,7 @@ def ensure_extract_xiso(path_hint: str | None) -> str | None:
     """
     allow_download = False
     if not path_hint:
-        output_dir = user_data_dir("nxdk-pgraph-test-repacker")
+        output_dir = user_data_dir("python-xiso-repacker")
         os.makedirs(output_dir, exist_ok=True)
         path_hint = os.path.join(output_dir, "extract-xiso")
         allow_download = True
