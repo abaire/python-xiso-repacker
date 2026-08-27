@@ -6,11 +6,10 @@ import platform
 import shutil
 import zipfile
 from os import PathLike
-from urllib.request import urlcleanup, urlretrieve
 
 from platformdirs import user_data_dir
 
-from python_xiso_repacker.util.github import fetch_github_release_info
+from python_xiso_repacker.util.github import download_github_release_asset
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +18,6 @@ _EXTRACT_XISO_REPO_API = "https://api.github.com/repos/XboxDev/extract-xiso"
 
 def _download_latest_extract_xiso(output_path: str | PathLike) -> bool:
     logger.info("Downloading latest extract-xiso release...")
-    info = fetch_github_release_info(_EXTRACT_XISO_REPO_API)
-    if not info:
-        return False
 
     system_name = platform.system()
     if system_name == "Darwin":
@@ -34,26 +30,14 @@ def _download_latest_extract_xiso(output_path: str | PathLike) -> bool:
         msg = f"Unsupported host system '{system_name}'"
         raise NotImplementedError(msg)
 
-    download_url = ""
-    for asset in info.get("assets", []):
-        name: str = asset.get("name", "")
-        if not name.endswith(".zip"):
-            continue
-
-        if asset_name in name:
-            download_url = asset.get("browser_download_url", "")
-            break
-
-    if not download_url:
-        logger.error("Failed to fetch download URL for latest extract-xiso release with platform %s", asset_name)
-        return False
-
     zip_path = f"{output_path}.zip"
-    if not download_url.startswith("https://"):
-        logger.error("Download URL '%s' has unexpected scheme", download_url)
+    if not download_github_release_asset(
+        _EXTRACT_XISO_REPO_API,
+        zip_path,
+        name_contains=asset_name,
+        name_ends_with=".zip",
+    ):
         return False
-    urlretrieve(download_url, zip_path)  # noqa: S310 - checked just above
-    urlcleanup()
 
     logger.debug("Extracting binary from zip file at %s", zip_path)
     binary_name = "extract-xiso.exe" if system_name == "Windows" else "extract-xiso"
@@ -72,7 +56,7 @@ def _download_latest_extract_xiso(output_path: str | PathLike) -> bool:
     return False
 
 
-def ensure_extract_xiso(path_hint: str | None) -> str | None:
+def ensure_extract_xiso(path_hint: str | None = None) -> str | None:
     """Ensures that the extract-xiso program is available and returns its path.
 
     :param path_hint - Path at which the extract-xiso program is expected to be

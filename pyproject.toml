@@ -44,6 +44,8 @@ type = "virtual"
 path = ".venv-mypy"
 extra-dependencies = [
   "mypy>=1.0.0",
+  "pytest",
+  "types-requests",
 ]
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/python_xiso_repacker tests}"
