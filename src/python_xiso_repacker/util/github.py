@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from os import PathLike
 from typing import Any
 from urllib.request import urlcleanup, urlretrieve
 
@@ -47,6 +48,24 @@ def fetch_github_release_info(api_url: str, tag: str = "latest") -> dict[str, An
     return fetch_and_filter(full_url)
 
 
+def _download_url(download_url: str, target_path: str | PathLike) -> bool:
+    """Downloads a file from a URL to a local target path, creating parent directories."""
+    if not download_url.startswith("https://"):
+        logger.error("Download URL '%s' has unexpected scheme", download_url)
+        msg = f"Bad download_url '{download_url}' - non HTTPS scheme"
+        raise ValueError(msg)
+
+    target_path_str = str(target_path)
+    output_dir = os.path.dirname(os.path.abspath(target_path_str))
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+    logger.debug("Downloading %s from %s", target_path_str, download_url)
+    urlretrieve(download_url, target_path_str)  # noqa: S310 - checked just above
+    urlcleanup()
+    return True
+
+
 def download_artifact(
     target_path: str, download_url: str, artifact_path_override: str | None = None, *, force_download: bool = False
 ) -> bool:
@@ -57,24 +76,48 @@ def download_artifact(
     if artifact_path_override and os.path.exists(artifact_path_override) and not force_download:
         return True
 
-    if not download_url.startswith("https://"):
-        logger.error("Download URL '%s' has unexpected scheme", download_url)
-        msg = f"Bad download_url '{download_url} - non HTTPS scheme"
-        raise ValueError(msg)
-
-    logger.debug("Downloading %s from %s", target_path, download_url)
+    destination = artifact_path_override if artifact_path_override else target_path
     if artifact_path_override:
-        target_path = artifact_path_override
         logger.debug(
             "> downloading artifact %s containing %s",
             artifact_path_override,
             target_path,
         )
-    os.makedirs(os.path.dirname(target_path), exist_ok=True)
-    urlretrieve(download_url, target_path)  # noqa: S310 - checked just above
-    urlcleanup()
 
-    return True
+    return _download_url(download_url, destination)
+
+
+def download_github_release_asset(
+    api_url: str,
+    output_path: str | PathLike,
+    *,
+    name_contains: str | None = None,
+    name_ends_with: str | None = None,
+    tag: str = "latest",
+) -> bool:
+    """Downloads an asset from a GitHub release matching specified criteria."""
+    info = fetch_github_release_info(api_url, tag=tag)
+    if not info:
+        return False
+
+    download_url = ""
+    for asset in info.get("assets", []):
+        name: str = asset.get("name", "")
+        if name_ends_with and not name.endswith(name_ends_with):
+            continue
+        if name_contains and name_contains not in name:
+            continue
+        download_url = asset.get("browser_download_url", "")
+        break
+
+    if not download_url:
+        logger.error("Failed to fetch download URL for release from %s", api_url)
+        return False
+
+    try:
+        return _download_url(download_url, output_path)
+    except ValueError:
+        return False
 
 
 def _filter_release_info_by_tag(release_infos: list[dict[str, Any]], tag: str) -> dict[str, Any] | None:

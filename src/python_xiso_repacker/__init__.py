@@ -11,19 +11,34 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from typing import TYPE_CHECKING
 
 from python_xiso_repacker.util.extract_xiso import ensure_extract_xiso
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+
 logger = logging.getLogger(__name__)
+
+__all__ = ["ensure_extract_xiso", "extract_file", "replace_file", "run"]
+
+
+def _copy_file(src: str, dst: str) -> None:
+    """Copies src to dst, creating any necessary parent directories."""
+    dst_dir = os.path.dirname(dst)
+    if dst_dir:
+        os.makedirs(dst_dir, exist_ok=True)
+    shutil.copy(src, dst)
 
 
 def _ensure_output_directory(output: str) -> str:
     if os.path.isdir(output) or not output.endswith(".iso"):
-        output = os.path.join(output, "tester_xiso-updated.iso")
+        output = os.path.join(output, "xiso-updated.iso")
 
-    output_dirname = os.path.dirname(output)
-    if output_dirname:
-        os.makedirs(output_dirname, exist_ok=True)
+    dst_dir = os.path.dirname(output)
+    if dst_dir:
+        os.makedirs(dst_dir, exist_ok=True)
 
     return output
 
@@ -43,7 +58,8 @@ def replace_file(
             logger.exception("Failed to extract iso %s using %s", iso_file, extract_xiso_binary)
             return False
 
-        shutil.copy(replacement_file, os.path.join(tmpdir, target_file))
+        target_path = os.path.join(tmpdir, target_file)
+        _copy_file(replacement_file, target_path)
 
         try:
             subprocess.run([extract_xiso_binary, "-c", tmpdir, output_file], capture_output=True, check=True)
@@ -72,18 +88,18 @@ def extract_file(iso_file: str, target_file: str, output_file: str, extract_xiso
 
         extracted_file_path = os.path.join(tmpdir, target_file)
         if not os.path.isfile(extracted_file_path):
+            logger.error("Target file %s not found in %s", target_file, iso_file)
             return False
 
         logger.info("Retrieved %s", os.path.basename(extracted_file_path))
-        os.makedirs(os.path.dirname(output_file), exist_ok=True)
-        shutil.move(extracted_file_path, output_file)
+        _copy_file(extracted_file_path, output_file)
         return True
 
 
-def run():
+def run(argv: Sequence[str] | None = None):
     """Parses program arguments and executes the repacker."""
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Tool to replace or extract files within Xbox ISO (xiso) images.")
     parser.add_argument(
         "--verbose",
         "-v",
@@ -94,48 +110,50 @@ def run():
     parser.add_argument(
         "--output",
         "-o",
-        help="Path to where the reconfigured xiso should be saved",
-        default="nxdk_pgraph_tests_xiso-updated.iso",
+        help="Path to where the reconfigured xiso should be saved (default: xiso-updated.iso)",
+        default="xiso-updated.iso",
     )
     parser.add_argument("--extract-xiso-tool", "-T", help="Path to the extract-xiso tool")
-    parser.add_argument("iso", metavar="path_to_iso", help="Path to the xiso file to reconfigure")
+    parser.add_argument("iso", metavar="path_to_iso", help="Path to the xiso file to read/reconfigure")
 
-    parser.add_argument("target_file", help="Path to the file within the ISO to replace")
+    parser.add_argument("target_file", help="Path to the file within the ISO to extract or replace")
 
-    action = parser.add_mutually_exclusive_group()
+    action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument(
-        "--replace", "-r", metavar="replacement_file", help="Path to file that will replace the target file"
+        "--replace", "-r", metavar="replacement_file", help="Path to file that will replace the target file in the ISO"
     )
     action.add_argument(
         "--extract",
         "-e",
         metavar="extracted_filepath",
-        help="Extract an existing file from the xiso and copy it to the given path",
+        help="Extract the target file from the xiso and copy it to the given destination path",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=log_level)
-
-    output = _ensure_output_directory(args.output)
 
     iso_file = args.iso
     if not os.path.isfile(iso_file):
         logger.error("Input ISO '%s' not found!", iso_file)
         sys.exit(2)
 
-    if not (args.config or args.extract_config):
-        sys.exit(0)
+    if args.replace and not os.path.isfile(args.replace):
+        logger.error("Replacement file '%s' not found!", args.replace)
+        sys.exit(2)
 
     extract_xiso = ensure_extract_xiso(args.extract_xiso_tool)
     if not extract_xiso:
         logger.error("extract-xiso tool not found")
         sys.exit(3)
 
-    if args.replace and not replace_file(iso_file, output, args.target_file, args.config, extract_xiso):
+    if args.replace and not replace_file(
+        iso_file, _ensure_output_directory(args.output), args.target_file, args.replace, extract_xiso
+    ):
         sys.exit(100)
-    if args.extract and not extract_file(iso_file, args.extract_config, extract_xiso):
+
+    if args.extract and not extract_file(iso_file, args.target_file, args.extract, extract_xiso):
         sys.exit(100)
 
     sys.exit(0)
